@@ -1,0 +1,7 @@
+﻿@foreach (var x in ViewBag.Topics)
+{
+    <div style="margin-bottom:10px; border: solid 1px;">
+        <a href="/Question/Index?@x.Id">@x.Title</a>
+        <p>@x.Description</p>
+    </div>
+}

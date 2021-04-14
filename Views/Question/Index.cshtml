@@ -1,0 +1,563 @@
+﻿<div style="float:right; margin-left:500px;">
+    <button onclick="showMySavedQuestions()">My saved Questions</button>
+    <div id="mySaves">
+
+    </div>
+</div>
+<div id="topics">
+    <div id="topicData">
+
+    </div>
+    <button onclick="loadTopics()">Load Topics</button><br />
+    <br />
+    @if (ViewBag.User != null)
+    {
+        <label>Create topic</label>
+        <input id="topicTitle" placeholder="Topic title" /><br />
+        <input id="topicDescription" placeholder="Topic description" /><br />
+        <button class="btn btn-success" onclick="createTopic()">Create topic</button>
+    }
+    else
+    {
+        <label>If you want to create topic, please login!</label>
+    }
+</div>
+<div id="questions" style="visibility:hidden;">
+    <button onclick="backToTopics()">Back to topics</button>
+    <button class="btn" onclick="changeOrder(false)">Sort</button><br />
+    <button class="btn btn-primary" onclick="changeOrder(true)">Load data</button><br />
+    <input id="changeTopic" placeholder="topic id" />
+    <button class="btn btn-info" onclick="changeTopic()">Change topic</button>
+    <div id="data"></div>
+    <p id="currentTopic">Current topic: 1</p>
+    @if (ViewBag.User != null)
+    {
+        <label>Create your question</label>
+        <input id="title" placeholder="title" />
+        <input id="description" placeholder="description" />
+        <button class="btn btn-success" onclick="createQuestion()">Create</button>
+    }
+    @if (ViewBag.User == null)
+    {
+        <p>If you want to leave a question, please login!</p>
+    }
+
+</div>
+<div id="question" style="visibility:hidden;">
+    <div>
+        <button onclick="loadData()">Back to question list</button>
+    </div>
+    <div id="changeQuestionButton" style="display:none;">
+        <button onclick="showChangeQuestion()">Change question</button>
+    </div>
+    <div>
+        <button onclick="addToSavedQuestion()">Save</button>
+    </div>
+    <div id="changeQuestion" style="display:none; margin-top:15px;">
+        <input id="changedQuestion" /><br />
+        <input id="changedDescription" /><br />
+        <button onclick="changeQuestion()">Submit</button><button onclick="hideChangeQuestion()">Hide</button>
+    </div>
+    <div id="questionData">
+
+    </div>
+
+    <div id="addComment">
+        @if (ViewBag.User != null)
+        {
+            <label>Leave your comment</label><br />
+            <input id="commentText" placeholder="Comment text" />
+            <br />
+            <button onclick="sendComment()">Send comment</button>
+        }
+        @if (ViewBag.User == null)
+        {
+            <p>If you want to leave a comment, please login!</p>
+
+        }
+
+
+    </div>
+    <div id="addSubComment" style="visibility:hidden;">
+        @if (ViewBag.User != null)
+        {
+            <label>Leave your answer to comment:</label><br />
+            <div id="reply">
+
+            </div>
+            <input id="commentSubText" placeholder="Your answer" />
+            <br />
+            <button onclick="leaveAnswer()">Send your answer</button><button onclick="hideReply()">Hide Reply</button>
+        }
+        @if (ViewBag.User == null)
+        {
+            <p>If you want to leave a comment, please login!</p>
+
+        }
+
+
+    </div>
+    <div id="changeComment" style="display:none;">
+        @if (ViewBag.User != null)
+        {
+            <label>Change comment:</label><br />
+            <input id="commentChangeText" />
+            <input id="commentID" style="display:none;" value="-1" />
+            <br />
+            <button onclick="changeComment()">Change comment</button><button onclick="hideChangeComment()">Hide Reply</button>
+        }
+        @if (ViewBag.User == null)
+        {
+            <p>If you want to leave a comment, please login!</p>
+
+        }
+    </div>
+</div>
+@if (ViewBag.User != null)
+{
+    <input id="userId" style="display: none;" value="@ViewBag.User.Id" />
+
+}
+else
+{
+    <input id="userId" style="display: none;" value="-1" />
+
+}
+<script>
+    var currentTopicId = -1;
+    var descending = true;
+    var currentQuestionId = 0;
+    var currentUser = document.getElementById('userId').value;
+    var currentReplyId = 0;
+    function createTopic() {
+        $.ajax({
+            url: '/Topic/AddTopic',
+            method: 'get',
+            dataType: 'json',
+            data: { Title: document.getElementById('topicTitle').value, Descriprion: document.getElementById('topicDescription').value },
+            success: function (data) {
+                if (data == false) {
+                    alert("smth goes wrong!");
+                }
+                else {
+                    loadTopics();
+                    document.getElementById('topicTitle').value = "";
+                    document.getElementById('topicDescription').value = "";
+                }
+
+            }
+        });
+    }
+    function loadData() {
+        if (currentTopicId == -1) {
+            loadTopics();
+            return;
+        }
+        document.getElementById('question').style.visibility = 'hidden';
+        document.getElementById('questions').style.display = 'block';
+        document.getElementById('questionData').innerHTML = "";
+        document.getElementById('addSubComment').style.visibility = 'hidden';
+
+        $.ajax({
+            url: '/Question/GetQuestionsOrderByDate',
+            method: 'get',
+            dataType: 'json',
+            data: { descending: descending, topicId: currentTopicId },
+            success: function (data) {
+                let loadedData = data;
+                if (loadedData["data"] == false || loadedData["data"].length == 0) {
+                    document.getElementById('data').innerHTML = "<p>smth goes wrong...</p>"
+                }
+                else {
+                    let dataDiv = document.getElementById('data');
+                    let str = '';
+                    dataDiv.innerHTML = "";
+                    for (let i = 0; i < loadedData["data"].length; i++) {
+                        let templ = loadedData["data"][i];
+                        const div = document.createElement('div');
+
+                        div.className = 'row';
+
+                        div.innerHTML = `<div style="border: solid 1px; padding:5px; width:150px;">
+                                        <btn onclick="loadQuestion(`+ templ["id"] + `)"><label class="text-danger">` + templ["title"] + `</label></btn>
+                                        <p>` + templ["description"] + ` </p>
+                                    </div > <br>`;
+
+                        document.getElementById('data').appendChild(div);
+                    }
+                }
+
+            }
+        });
+    }
+    function createQuestion() {
+        $.ajax({
+            url: '/Question/PostQuestion',
+            method: 'get',
+            dataType: 'json',
+            data: { topicId: currentTopicId, title: document.getElementById('title').value, description: document.getElementById('description').value },
+            success: function (data) {
+                if (data == false) {
+                    alert("smth goes wrong!");
+                }
+                else {
+                    loadData();
+                    document.getElementById('title').value = "";
+                    document.getElementById('description').value = "";
+                }
+
+            }
+        });
+    }
+    function changeTopic() {
+        if (document.getElementById('changeTopic').value !== null) currentTopicId = document.getElementById('changeTopic').value;
+        loadData();
+        document.getElementById('currentTopic').innerHTML = "Current topic: " + currentTopicId;
+        document.getElementById('changeTopic').value = "";
+    }
+    function changeOrder(desc) {
+        if (desc !== null) {
+            descending = desc;
+            loadData();
+        }
+    }
+    function loadQuestion(id) {
+        document.getElementById('questionData').innerHTML = "";
+        $.ajax({
+            url: '/Question/GetQuestionById',
+            method: 'get',
+            dataType: 'json',
+            data: { id: id },
+            success: function (data) {
+                if (data == false) {
+                    alert("smth goes wrong!");
+                }
+                else {
+                    if (data['question']['userId'] == currentUser) {
+                        document.getElementById('changeQuestionButton').style.display = 'block';
+                    }
+                    currentQuestionId = data['question']['id'];
+                    document.getElementById('question').style.visibility = "visible";
+                    document.getElementById('questions').style.display = "none";
+                    document.getElementById('changedQuestion').value = data['question']['title'];
+                    document.getElementById('changedDescription').value = data['question']['description'];
+                    const div = document.createElement('div');
+                    let html =
+                        `
+                        <div>
+                          <label>Title:</label><br />
+                          <span>`+ data['question']['title'] + `</span> <br />
+                          <label>Description:</label><br />
+                          <span>`+ data['question']['description'] + `</span> <br />
+                          <label>Comments count:</label><br />
+                          <span>`+ data['comments'].length + `</span> <br /><br />
+                        </div>
+                        `;
+                    for (let i = 0; i < data['comments'].length; i++) {
+                        html += `
+                            <br />
+                            <div style="border:solid 1px; width:250px;">
+                                <p>`+ data['comments'][i]['text'] + `</p>
+                                <span>`+ data['comments'][i]['user']['userName'] + `</span>
+                                <br/>
+                                <span>`+ data['comments'][i]['likes'] + ` likes</span>
+                                <br/>
+                                <button onclick="like(` + data['comments'][i]['id'] + `)" style="float:right;">Like</button>
+
+                                <span onclick="showAnswerInput('`+ data['comments'][i]['user']['userName'] + "','" + String(data['comments'][i]['text']) + "'," + data['comments'][i]['id'] + `)">Answer to this comment</span>
+                            </div>
+                        `;
+                        if (currentUser == data['comments'][i]['user']['id']) {
+                            html += `
+                                      <div id="comment`+ data['comments'][i]['id'] + `">
+
+                                            <button onclick="showChangeComment(`+ data['comments'][i]['id'] + ", '" + data['comments'][i]['text'] + `')">Change comment</button>
+                                      </div>
+                                    `;
+                        }
+                        for (let f = 0; f < data['comments'][i]['subComments'].length; f++) {
+                            html +=
+                                `
+                                    <div style="margin-left:20px; margin-bottom:20px; border: solid 1px; width: 230px;">
+                                        <p>` + data['comments'][i]['subComments'][f]['text'] + `</p>
+                                        <span>`+ data['comments'][i]['subComments'][f]['user']['userName'] + `</span>
+                                        <span>`+ data['comments'][i]['subComments'][f]['likes'] + ` likes</span>
+                                        <br/>
+                                        <button onclick="likesub(` + data['comments'][i]['subComments'][f]['id'] + `)" style="float:right;">Like</button>
+                                    </div>
+                                `;
+                        }
+                    }
+                    div.innerHTML = html;
+                    document.getElementById('questionData').appendChild(div);
+                    document.getElementById('topics').style.display = 'none';
+
+
+                }
+
+            }
+        });
+    }
+    function changeQuestion() {
+        $.ajax({
+            url: '/Question/ChangeQuestion',
+            method: 'get',
+            dataType: 'json',
+            data: { id: currentQuestionId, title: document.getElementById('changedQuestion').value, description: document.getElementById('changedDescription').value },
+            success: function (data) {
+                if (data == false) {
+                    alert("smth goes wrong!");
+                }
+                else {
+                    hideChangeQuestion();
+                    loadQuestion(currentQuestionId);
+                    //document.getElementById('commentSubText').value = "";
+                }
+
+            }
+        });
+
+    }
+    function changeComment() {
+        $.ajax({
+            url: '/Comment/ChangeComment',
+            method: 'get',
+            dataType: 'json',
+            data: { id: document.getElementById('commentID').value, text: document.getElementById('commentChangeText').value },
+            success: function (data) {
+                if (data == false) {
+                    alert("smth goes wrong!");
+                }
+                else {
+                    hideChangeComment();
+                    loadQuestion(currentQuestionId);
+                    //document.getElementById('commentSubText').value = "";
+                }
+
+            }
+        });
+    }
+    function showChangeComment(id, text) {
+        if (document.getElementById('commentID').value !== id && document.getElementById('commentID').value !== "-1") {
+            document.getElementById('comment' + document.getElementById('commentID').value).style.display = 'block';
+
+        }
+        document.getElementById('comment' + id).style.display = 'none';
+        document.getElementById('changeComment').style.display = 'block';
+        document.getElementById('commentID').value = id;
+        document.getElementById('commentChangeText').value = text;
+
+    }
+    function hideChangeComment() {
+        document.getElementById('changeComment').style.display = 'none';
+        document.getElementById('comment' + document.getElementById('commentID').value).style.display = 'block';
+    }
+    function showChangeQuestion() {
+        document.getElementById('changeQuestion').style.display = 'block';
+        document.getElementById('changeQuestionButton').style.display = 'none';
+
+    }
+    function hideChangeQuestion() {
+        document.getElementById('changeQuestion').style.display = 'none';
+        document.getElementById('changeQuestionButton').style.display = 'block';
+    }
+    function showAnswerInput(userName, text, commentId) {
+        document.getElementById('addComment').style.display = 'none';
+        document.getElementById('addSubComment').style.visibility = 'visible';
+        document.getElementById('reply').innerHTML = "<span>Answer to </span>" + userName + "<br/><p>" + text + "</p><br/><br/>";
+        currentReplyId = commentId;
+    }
+    function leaveAnswer() {
+        $.ajax({
+            url: '/SubComment/PostSubComment',
+            method: 'get',
+            dataType: 'json',
+            data: { commentId: currentReplyId, text: document.getElementById('commentSubText').value },
+            success: function (data) {
+                if (data == false) {
+                    alert("smth goes wrong!");
+                }
+                else {
+                    hideReply();
+                    loadQuestion(currentQuestionId);
+                    document.getElementById('commentSubText').value = "";
+                }
+
+            }
+        });
+    }
+    function hideReply() {
+        document.getElementById('addComment').style.display = 'block';
+        document.getElementById('addSubComment').style.visibility = 'hidden';
+        document.getElementById('reply').innerHTML = "";
+        currentReplyId = 0;
+    }
+    function sendComment() {
+        $.ajax({
+            url: '/Comment/PostComment',
+            method: 'get',
+            dataType: 'json',
+            data: { questionId: currentQuestionId, text: document.getElementById('commentText').value },
+            success: function (data) {
+                if (data == false) {
+                    alert("smth goes wrong!");
+                }
+                else {
+                    loadQuestion(currentQuestionId);
+                    document.getElementById('commentText').value = "";
+                }
+
+            }
+        });
+    }
+    function loadTopics() {
+        $.ajax({
+            url: '/topic/orderbydate',
+            method: 'get',
+            dataType: 'json',
+            data: {},
+            success: function (data) {
+                let loadedData = data;
+                if (loadedData["data"] == false || loadedData["data"].length == 0) {
+                    document.getElementById('data').innerHTML = "<p>smth goes wrong...</p>"
+                }
+                else {
+                    let dataDiv = document.getElementById('topicData');
+                    let str = '';
+                    dataDiv.innerHTML = "";
+                    for (let i = 0; i < loadedData["data"].length; i++) {
+                        let templ = loadedData["data"][i];
+                        const div = document.createElement('div');
+
+                        div.className = 'row';
+
+                        div.innerHTML = `<div style="border: solid 1px; padding:5px; width:150px;">
+                                        <btn onclick="loadTopic(`+ templ["id"] + `)"><label class="text-danger">` + templ["title"] + `</label></btn>
+                                        <p>` + templ["description"] + ` </p>
+                                    </div > <br>`;
+
+                        document.getElementById('topicData').appendChild(div);
+                        backToTopics();
+                    }
+                }
+
+            }
+        });
+    }
+    function loadTopic(id) {
+        if (id !== null) {
+            currentTopicId = id;
+
+            document.getElementById('topics').style.display = 'none';
+            document.getElementById('questions').style.visibility = 'visible';
+            document.getElementById('currentTopic').innerHTML = "Current topic: " + id;
+            loadData();
+        }
+    }
+    function backToTopics() {
+        document.getElementById('topics').style.display = 'block';
+        document.getElementById('questions').style.visibility = 'hidden';
+        document.getElementById('question').style.visibility = 'hidden';
+
+    }
+    function addToSavedQuestion() {
+        $.ajax({
+            url: '/Question/AddSavedQuestion',
+            method: 'get',
+            dataType: 'json',
+            data: { id: currentQuestionId },
+            success: function (data) {
+                if (data == false) {
+                    alert("smth goes wrong!");
+                }
+                else {
+                    if (data['data'] == "added") {
+                        alert('Added to yours saved questions!');
+                        showMySavedQuestions();
+                    }
+                    if (data['data'] == "deleted") {
+                        alert('Deleted from yours saved questions!');
+                        showMySavedQuestions();
+                    }
+
+                }
+
+            }
+        });
+    }
+    function showMySavedQuestions() {
+        $.ajax({
+            url: '/Question/ShowSavedQuestions',
+            method: 'get',
+            dataType: 'json',
+            data: { userId: currentUser },
+            success: function (data) {
+                if (data == false) {
+                    alert("smth goes wrong!");
+                }
+                else {
+                    let html1 = "";
+                    for (let i = 0; i < data['question'].length; i++) {
+                        html1 += "<div onclick='loadQuestion(" + data['question'][i]['id'] + ")'>"
+                        html1 += "<p>" + data['question'][i]['title'] + "</p>"
+                        html1 += '</div >';
+                    }
+                    document.getElementById('mySaves').innerHTML = html1;
+
+                }
+
+            }
+        });
+    }
+    function like(id) {
+        $.ajax({
+            url: '/Comment/PostLike',
+            method: 'get',
+            dataType: 'json',
+            data: { id: id },
+            success: function (data) {
+                if (data == false) {
+                    alert("smth goes wrong!");
+                }
+                else {
+                    if (data == "added") {
+                        alert('Added like!');
+                        loadQuestion(currentQuestionId);
+                    }
+                    if (data == "deleted") {
+                        alert('Deleted like!');
+                        loadQuestion(currentQuestionId);
+                    }
+
+                }
+
+            }
+        });
+    }
+    function likesub(id) {
+        $.ajax({
+            url: '/SubComment/PostLikeSubComment',
+            method: 'get',
+            dataType: 'json',
+            data: { id: id },
+            success: function (data) {
+                if (data == false) {
+                    alert("smth goes wrong!");
+                }
+                else {
+                    if (data == "added") {
+                        alert('Added like!');
+                        loadQuestion(currentQuestionId);
+                    }
+                    if (data == "deleted") {
+                        alert('Deleted like!');
+                        loadQuestion(currentQuestionId);
+                    }
+
+                }
+
+            }
+        });
+    }
+
+</script>
